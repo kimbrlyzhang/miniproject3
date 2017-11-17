@@ -35,17 +35,10 @@ and t.kind_id = '1'")
 ```
 
 ```{r}
-
-```
-```{r}
-follow <- c("followed by" , "follows")
-
-followseq <- sequels %>%
-  filter(link == follow) %>%
+seq <- sequels %>%
   group_by(title) %>%
-  mutate(countf = count(title)) %>%
+  mutate(counttitle = count(title)) %>%
   arrange(desc(countf))
-
 ```
 
 ```{r}
@@ -53,8 +46,7 @@ followseq %>%
   mutate(kscore = countf/ratings)
 
 
-#the higher the kscore, the higher correlation there is ratings and imdb score
-does it makes sense to this: 
+#the lower the kscore, the higher correlation there is ratings and imdb score
 ```
 
 ```{r}
