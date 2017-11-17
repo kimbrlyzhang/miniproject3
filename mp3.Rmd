@@ -1,0 +1,65 @@
+```{r}
+library(mdsr)
+library(dplyr)
+library(ggplot2)
+library(ggthemes)
+library(RMySQL)
+db <- dbConnect_scidb(dbname = "imdb")
+```
+
+```{r}
+sequels <- db %>% 
+  dbGetQuery("select  t.id, t.title, t.production_year, mii.info AS ratings, lt.link, mv.movie_id, mv.linked_movie_id
+from title t
+inner join movie_link mv on mv.linked_movie_id = t.id
+left join link_type lt on lt.id = mv.link_type_id 
+left join movie_info_idx mii on mii.movie_id = t.id 
+where 
+t.kind_id = '1' 
+		and mii.info_type_id = 101
+		and lt.link like 'follow%' or 'rema%' or 'version%';")
+```
+
+```{r}
+trseq <- sequels %>%
+  select(title, ratings)
+```
+
+```{r}
+genres <- db %>%
+  dbGetQuery("select t.id , t.title, mi.info, t.production_year
+from title t 
+inner join imdb.movie_info mi on mi.movie_id = t.id
+where info_type_id = '3' 
+and t.kind_id = '1'")
+```
+
+```{r}
+
+```
+```{r}
+follow <- c("followed by" , "follows")
+
+followseq <- sequels %>%
+  filter(link == follow) %>%
+  group_by(title) %>%
+  mutate(countf = count(title)) %>%
+  arrange(desc(countf))
+
+```
+
+```{r}
+followseq %>%
+  mutate(kscore = countf/ratings)
+
+
+#the higher the kscore, the higher correlation there is ratings and imdb score
+does it makes sense to this: 
+```
+
+```{r}
+ggplot(followseq, aes(x = production_year)) + geom_bar(aes(fill = ratings))
+```
+
+
+
