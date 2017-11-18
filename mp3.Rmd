@@ -4,6 +4,8 @@ library(dplyr)
 library(ggplot2)
 library(ggthemes)
 library(RMySQL)
+install.packages("ggpubr")
+library(ggpubr)
 db <- dbConnect_scidb(dbname = "imdb")
 ```
 
@@ -18,6 +20,7 @@ where
 t.kind_id = '1' 
 		and mii.info_type_id = 101
 		and lt.link like 'follow%' or 'rema%' or 'version%';")
+sequels
 ```
 
 ```{r}
@@ -35,23 +38,64 @@ and t.kind_id = '1'")
 ```
 
 ```{r}
+genreseq <- inner_join(sequels, genres, by = 'id')
+
+head(genreseq)
+
+gseq <- genreseq %>% 
+  group_by(title.x) %>%
+  mutate(countitle = count(title.x)) %>%
+  mutate(rate = as.numeric(ratings)) %>%
+  mutate(average = sum(rate)/countitle)
+  
+gseq
+```
+
+
+
+
+
+```{r}
 seq <- sequels %>%
   group_by(title) %>%
-  mutate(counttitle = count(title)) %>%
-  arrange(desc(countf))
+  mutate(countitle = count(title)) %>%
+  mutate(rate = as.numeric(ratings)) %>%
+  arrange(desc(countitle))
 ```
 
 ```{r}
-followseq %>%
-  mutate(kscore = countf/ratings)
+scattertest <- seq %>%
+  mutate(average = sum(rate)/countitle)
 
-
-#the lower the kscore, the higher correlation there is ratings and imdb score
+seq %>%
+  arrange(countitle)
 ```
 
 ```{r}
-ggplot(followseq, aes(x = production_year)) + geom_bar(aes(fill = ratings))
+gseq2 <- gseq %>%
+  mutate(kscore = countitle/rate) %>%
+  mutate(kimdb = sum(rate)/countitle)%>%
+  group_by(info, countitle) %>%
+  mutate( nk = n(),
+    avrgk = sum(kimdb)/nk)%>% 
+  filter(countitle < 8)
+gseq2
+
+  
 ```
 
+
+
+```{r}
+ggplot(gseq2, aes(x = info, y = avrgk)) + 
+  geom_() +  
+  facet_wrap(~countitle)
+```
+
+```{r}
+ggplot(gseq, aes(x = average, y = countitle)) + geom_point() + facet_wrap(~info)
+
+ggscatter(gseq, x = "average", y = "countitle", add = "reg.line", conf.int = TRUE, cor.coef = TRUE, cor.method = "pearson") + facet_wrap(~info)
+```
 
 
