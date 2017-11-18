@@ -61,6 +61,7 @@ seq <- sequels %>%
   mutate(countitle = count(title)) %>%
   mutate(rate = as.numeric(ratings)) %>%
   arrange(desc(countitle))
+seq
 ```
 
 ```{r}
@@ -72,14 +73,20 @@ seq %>%
 ```
 
 ```{r}
+
+gseq %>% 
+    filter(info == "History") 
+
 gseq2 <- gseq %>%
+  filter(countitle < 8) %>%
+  #filter(info == c("History", "Thriller", "Biography", "Drama", "Animation", "Comedy", "Family", "Short")) %>%
   mutate(kscore = countitle/rate) %>%
-  mutate(kimdb = sum(rate)/countitle)%>%
+  mutate(kimdb = sum(rate)/countitle) %>%
   group_by(info, countitle) %>%
-  mutate( nk = n(),
-    avrgk = sum(kimdb)/nk)%>% 
-  filter(countitle < 8)
+  mutate( nk = n(), avrgk = sum(kimdb)/nk) 
+
 gseq2
+
 
   
 ```
