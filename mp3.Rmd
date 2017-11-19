@@ -74,21 +74,17 @@ seq %>%
 
 ```{r}
 
-gseq %>% 
-    filter(info == "History") 
+selectg <- c("History", "Short", "Animation", "Action", "Comedy", "Family") 
 
 gseq2 <- gseq %>%
   filter(countitle < 8) %>%
-  #filter(info == c("History", "Thriller", "Biography", "Drama", "Animation", "Comedy", "Family", "Short")) %>%
   mutate(kscore = countitle/rate) %>%
   mutate(kimdb = sum(rate)/countitle) %>%
   group_by(info, countitle) %>%
-  mutate( nk = n(), avrgk = sum(kimdb)/nk) 
+  mutate(nk = n(), avrgk = sum(kimdb)/nk) %>%
+  filter(info == selectg)
 
 gseq2
-
-
-  
 ```
 
 
