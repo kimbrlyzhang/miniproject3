@@ -1,15 +1,15 @@
-```{r}
+```{r, warning=FALSE, message=FALSE}
 library(mdsr)
 library(dplyr)
 library(ggplot2)
 library(ggthemes)
 library(RMySQL)
-install.packages("ggpubr")
 library(ggpubr)
+library(RColorBrewer)
 db <- dbConnect_scidb(dbname = "imdb")
 ```
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 sequels <- db %>% 
   dbGetQuery("select  t.id, t.title, t.production_year, mii.info AS ratings, lt.link, mv.movie_id, mv.linked_movie_id
 from title t
@@ -20,15 +20,9 @@ where
 t.kind_id = '1' 
 		and mii.info_type_id = 101
 		and lt.link like 'follow%' or 'rema%' or 'version%';")
-sequels
 ```
 
-```{r}
-trseq <- sequels %>%
-  select(title, ratings)
-```
-
-```{r}
+```{r, warning=FALSE, message=FALSE}
 genres <- db %>%
   dbGetQuery("select t.id , t.title, mi.info, t.production_year
 from title t 
@@ -37,68 +31,82 @@ where info_type_id = '3'
 and t.kind_id = '1'")
 ```
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 genreseq <- inner_join(sequels, genres, by = 'id')
-
-head(genreseq)
 
 gseq <- genreseq %>% 
   group_by(title.x) %>%
   mutate(countitle = count(title.x)) %>%
   mutate(rate = as.numeric(ratings)) %>%
   mutate(average = sum(rate)/countitle)
-  
-gseq
 ```
 
 
 
 
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 seq <- sequels %>%
   group_by(title) %>%
   mutate(countitle = count(title)) %>%
   mutate(rate = as.numeric(ratings)) %>%
   arrange(desc(countitle))
-seq
 ```
 
-```{r}
-scattertest <- seq %>%
-  mutate(average = sum(rate)/countitle)
-
-seq %>%
-  arrange(countitle)
-```
-
-```{r}
+```{r, warning=FALSE, message=FALSE}
 
 selectg <- c("History", "Short", "Animation", "Action", "Comedy", "Family") 
 
-gseq2 <- gseq %>%
-  filter(countitle < 8) %>%
+gsummarize <- gseq %>%
+  filter(info %in% selectg)%>%
+  filter(countitle < 10) %>%
   mutate(kscore = countitle/rate) %>%
   mutate(kimdb = sum(rate)/countitle) %>%
   group_by(info, countitle) %>%
-  mutate(nk = n(), avrgk = sum(kimdb)/nk) %>%
-  filter(info == selectg)
+  summarize(nk = n(), avrgk = sum(kimdb)/nk)
+```
 
-gseq2
+```{r, warning=FALSE, message=FALSE}
+firstseq <- gsummarize %>%
+  filter(countitle == 1)
+```
+```{r fig.height=10, fig.width=10, warning=FALSE, message=FALSE}
+ggscatter(gseq, x = "average", y = "countitle", cor.coef = TRUE, cor.method = "pearson", size = 1, alpha = 0.01) + 
+  facet_wrap(~info) +
+  ggtitle("Correlation Between IMDB and Number of Sequel") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r fig.height=3, fig.width=11, warning=FALSE, message=FALSE}
+ggplot(gsummarize, aes(x = countitle, y = avrgk)) + 
+  geom_col() + 
+  scale_y_continuous(limit = c(0, 7), 
+                     breaks = c(1, 2, 3, 4, 5, 6, 7), 
+                     labels = c("1", "2", "3", "4", "5", "6", "7")) + 
+  labs(x = "Genre", y = "Average IMDB Rating") + 
+  scale_x_continuous(limit = c(0, 10),
+                     breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9), 
+                     labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9")) +
+  facet_grid(~info) +
+  ggtitle("Average IMDB Rating For Number of Sequels") +
+  theme_economist() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r, warning=FALSE, message=FALSE}
+ggplot(firstseq, aes(x = info, y = avrgk, fill = info)) + 
+  geom_col() + 
+  scale_fill_brewer(palette = "Set3") + 
+  scale_y_continuous(limit = c(0, 7), 
+                     breaks = c(1, 2, 3, 4, 5, 6, 7), 
+                     labels = c("1", "2", "3", "4", "5", "6", "7")) +
+   labs(x = "Genre", y = "Average IMDB Rating") +
+    ggtitle("Average IMDB Rating for the First Sequel") +
+  theme_economist() +
+  theme(legend.title = element_blank(), plot.title = element_text(hjust = 0.5), legend.position = "none")
 ```
 
 
 
-```{r}
-ggplot(gseq2, aes(x = info, y = avrgk)) + 
-  geom_() +  
-  facet_wrap(~countitle)
-```
-
-```{r}
-ggplot(gseq, aes(x = average, y = countitle)) + geom_point() + facet_wrap(~info)
-
-ggscatter(gseq, x = "average", y = "countitle", add = "reg.line", conf.int = TRUE, cor.coef = TRUE, cor.method = "pearson") + facet_wrap(~info)
-```
 
 
