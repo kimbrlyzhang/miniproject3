@@ -9,72 +9,87 @@ library(RColorBrewer)
 db <- dbConnect_scidb(dbname = "imdb")
 ```
 
+###Problem Statement###
+**What relationship is there between IMDB ratings and the number of sequels in a franchise? What IMBD score does a franchise (in a specific genre) need to merit a sequel?**
+
+Focusing on the specific variable of IMBD score, we attempted to find a correlation between that score and the probability of a sequel. Obviously there are other factors involved in determining if a franchise continues to produce movies, notably box office profits, advertising expenses and movie exprenses, but we wanted to isolate a single variable and investigate any sequel patterns specific to IMDB score. 
+
+Many of our comparisons are between movie genres, but it is important to recognize that animated films require a lot of funding for graphics, and they are likely to be more dependant on net profits than IMDB scores (though the two often correlate). Historical movies might be critically aclaimed, but have low box office profits, and therefore the franchise is unlikely to produce a sequel.
+
+Our findings show that not all movie genres are treated equally in regards to sequel production.  Box office profits is a variable that would be worthwhile to examine in the future. Per our conversation with Professor Keller, IMDB scores are more reflective of the quality of the plot and acting, which may be less directly related to the decision of making another sequel than profitability. For an example, action movies may receive low IMDB ratings, but their sequels still get produced. This might be due to high box office profits from the thrill and excitement of seeing an action movie. Our alternative hypothesis that the lower rated first movies are genres may be more profitable than the others. From our selected set of movies, action movies might drive high sales volume, which offsets the high production costs -- making it more profitable and thus sequels are produced regardless of IMDB score. Comedy movies, on the other hand, can be produced with lower costs and still drive high sales volume, thus needing a lower IMDB score for sequel production. Overall, while there are many other variables involved the decision of producing sequels, but IMDB scores are a factor to consider in the production of sequels.
+
 ```{r, warning=FALSE, message=FALSE}
 sequels <- db %>% 
   dbGetQuery("select  t.id, t.title, t.production_year, mii.info AS ratings, lt.link, mv.movie_id, mv.linked_movie_id
-from title t
+from title t 
 inner join movie_link mv on mv.linked_movie_id = t.id
+  #joined movie link to title to get how each movie is connected to other movies
 left join link_type lt on lt.id = mv.link_type_id 
+  #joined the link type to the movie link table to get the descriptions of how each movie is connected
 left join movie_info_idx mii on mii.movie_id = t.id 
+  #joined movie id to movie info to get ratings of each movie
 where 
 t.kind_id = '1' 
 		and mii.info_type_id = 101
 		and lt.link like 'follow%' or 'rema%' or 'version%';")
+  #filtered for only movies, ratings and the specific links that will tell us about sequels
 ```
+
 
 ```{r, warning=FALSE, message=FALSE}
 genres <- db %>%
   dbGetQuery("select t.id , t.title, mi.info, t.production_year
 from title t 
 inner join imdb.movie_info mi on mi.movie_id = t.id
+  #joined to find a genre label for each movie
 where info_type_id = '3' 
 and t.kind_id = '1'")
+#filtered to only show data for genres in movies
 ```
 
 ```{r, warning=FALSE, message=FALSE}
 genreseq <- inner_join(sequels, genres, by = 'id')
 
+#joined the sequels and genres together to create one table
+
 gseq <- genreseq %>% 
   group_by(title.x) %>%
+  #organized the data by the first title in the sequel series
   mutate(countitle = count(title.x)) %>%
+  #counted the amount of titles in each sequel series
   mutate(rate = as.numeric(ratings)) %>%
+  #converted the rate into a number from a character
   mutate(average = sum(rate)/countitle)
+  #found the average imdb score per sequel series
 ```
 
 
-
-
-
-```{r, warning=FALSE, message=FALSE}
-seq <- sequels %>%
-  group_by(title) %>%
-  mutate(countitle = count(title)) %>%
-  mutate(rate = as.numeric(ratings)) %>%
-  arrange(desc(countitle))
+```{r fig.height=10, fig.width=10, warning=FALSE, message=FALSE}
+ggscatter(gseq, x = "average", y = "countitle", size = 1, alpha = 0.01) + 
+  facet_wrap(~info) +
+  ggtitle("Correlation Between IMDB and Number of Sequels") +
+  theme(plot.title = element_text(hjust = 0.5))
+  #determined if correlation between imdb score and sequels produced over genres were significantly significant using a pearson test
 ```
+
+To show the correlation between imdb score and number of sequels for each genre, we graphed the IMBD score against the number of sequels and evaluated these graphs using Pearson's Correlation. Genres with the highest correlation will have a concentration of points aligned with a specific IMBD score. We selected a few genres and a high number of sequels to examine further for interesting patterns. 
 
 ```{r, warning=FALSE, message=FALSE}
 
 selectg <- c("History", "Short", "Animation", "Action", "Comedy", "Family") 
+  #selected genres from above analysis to analyze 
 
 gsummarize <- gseq %>%
-  filter(info %in% selectg)%>%
+  filter(info %in% selectg) %>%
+  #filtered for selected genres
   filter(countitle < 10) %>%
-  mutate(kscore = countitle/rate) %>%
+  #got rid of franchises that exceeded 10 sequels
   mutate(kimdb = sum(rate)/countitle) %>%
+  #found average imdb score of the franchise
   group_by(info, countitle) %>%
+  #organized by genre and number of sequels
   summarize(nk = n(), avrgk = sum(kimdb)/nk)
-```
-
-```{r, warning=FALSE, message=FALSE}
-firstseq <- gsummarize %>%
-  filter(countitle == 1)
-```
-```{r fig.height=10, fig.width=10, warning=FALSE, message=FALSE}
-ggscatter(gseq, x = "average", y = "countitle", cor.coef = TRUE, cor.method = "pearson", size = 1, alpha = 0.01) + 
-  facet_wrap(~info) +
-  ggtitle("Correlation Between IMDB and Number of Sequel") +
-  theme(plot.title = element_text(hjust = 0.5))
+  #boiled it down to the average imdb score of all franchise across genres
 ```
 
 ```{r fig.height=3, fig.width=11, warning=FALSE, message=FALSE}
@@ -83,7 +98,7 @@ ggplot(gsummarize, aes(x = countitle, y = avrgk)) +
   scale_y_continuous(limit = c(0, 7), 
                      breaks = c(1, 2, 3, 4, 5, 6, 7), 
                      labels = c("1", "2", "3", "4", "5", "6", "7")) + 
-  labs(x = "Genre", y = "Average IMDB Rating") + 
+  labs(x = "Number of Sequels", y = "Average IMDB Rating") + 
   scale_x_continuous(limit = c(0, 10),
                      breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9), 
                      labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9")) +
@@ -91,6 +106,14 @@ ggplot(gsummarize, aes(x = countitle, y = avrgk)) +
   ggtitle("Average IMDB Rating For Number of Sequels") +
   theme_economist() +
   theme(plot.title = element_text(hjust = 0.5))
+```
+
+We began by finding the average IMDB score for each franchise, and then averaging those scores over the genre to produce the figure above. Each genre is then 'faceted' by the number of sequels produced. It is key to note that the scale of IMBD scores only goes up to 7, meaning the average franchise does not need an IMBD score over ~6.5 to continue making sequels. For all of the genres seen above, the first sequel is corresponds to the highest IMDB score, indicating you need a higher initial rating, which can then decline after you get the ball rolling. For example, even if Jurassic Park 3 gets poor ratings, the merits of the first Jurassic Park can still entice audiences to see Jurassic Park 4. Interestingly there seems to be an peak in average IMDB score around the 6th sequel for many of the genres (Action, Comedy, Family, and Short). We limited our data to franchises with less than ten sequels, since franchises with more than 10 showed no relation between imdb score and number of sequels, and probably are not connected in any significant way to imdb scores. During our discussion in-class, Professor Keller noted that sequels that exceeded ten veered more into the tv series category, than in the movies. 
+
+```{r, warning=FALSE, message=FALSE}
+firstseq <- gsummarize %>%
+  filter(countitle == 1)
+  #isolated dataset to only show the first sequel in a franchise series 
 ```
 
 ```{r, warning=FALSE, message=FALSE}
@@ -106,6 +129,10 @@ ggplot(firstseq, aes(x = info, y = avrgk, fill = info)) +
   theme(legend.title = element_blank(), plot.title = element_text(hjust = 0.5), legend.position = "none")
 ```
 
+Because the first sequels averaged the highest IMDB score across all genres, we focused on these values for our genre comparison. From the figure above, it is evident that Animation and Short require the highest IMDB score to make the intial sequel (~6.5), while Action films have the lowest average IMDB score of ~5.2. Overall the scores are all below 7, indicating the movie does not need to be extremely well received to merit a sequel. 
+
+**GitHub Repository**
+https://github.com/kimbrlyzhang/miniproject3 
 
 
 
